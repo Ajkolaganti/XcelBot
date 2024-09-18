@@ -1,13 +1,20 @@
 const express = require("express");
-const stripe = require("stripe")(
-  "pk_test_51O7pVKCgDCFruCkHDPiH5tBcLpE1PiALeibKIri3yulV92xtAzFG9xcklxVCmzqsWr6peuTWBmjU7W7ibYTTjbG500gTak1UwI",
-);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const admin = require("firebase-admin");
 const cors = require("cors");
 
 const app = express();
+
+// Configure CORS
+app.use(
+  cors({
+    origin: ["chrome-extension://nhefcgnpcdackoghonbbgfdbjnapdnjo"],
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+
 app.use(express.json());
-app.use(cors({ origin: true }));
 
 // Initialize Firebase Admin SDK
 admin.initializeApp({
@@ -21,7 +28,6 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// Create a new checkout session
 app.post("/create-checkout-session", async (req, res) => {
   const { priceId, userId } = req.body;
 
@@ -42,7 +48,6 @@ app.post("/create-checkout-session", async (req, res) => {
   }
 });
 
-// Webhook to handle successful payments
 app.post(
   "/webhook",
   express.raw({ type: "application/json" }),
@@ -65,11 +70,17 @@ app.post(
       const session = event.data.object;
 
       try {
-        // Update user's subscription in Firestore
+        const planDetails = {
+          BASIC_PRICE_ID: { name: "Basic", credits: 50 },
+          PRO_PRICE_ID: { name: "Pro", credits: 1000000 }, // Unlimited represented as a large number
+        };
+
+        const planInfo = planDetails[session.metadata.priceId];
+
         await db.collection("users").doc(session.client_reference_id).update({
           subscriptionId: session.subscription,
-          plan: session.metadata.plan, // Assume you've added plan info to session metadata
-          credits: session.metadata.credits, // Assume you've added credits info to session metadata
+          plan: planInfo.name,
+          credits: planInfo.credits,
         });
       } catch (error) {
         console.error("Error updating user subscription:", error);
