@@ -41,7 +41,7 @@ app.post("/create-checkout-session", async (req, res) => {
       client_reference_id: userId,
     });
 
-    res.json({ sessionId: session.id });
+    res.json({ checkoutUrl: session.url });
   } catch (error) {
     console.error("Error creating checkout session:", error);
     res.status(500).json({ error: error.message });
